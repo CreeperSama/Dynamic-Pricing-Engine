@@ -1,0 +1,12 @@
+# Ignore datasets
+*.csv
+*.xlsx
+*.zip
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore Python environments
+venv/
+env/
+__pycache__/
