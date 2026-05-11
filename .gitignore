@@ -1,12 +1,16 @@
-# Ignore datasets
-*.csv
-*.xlsx
-*.zip
+# --- React/Frontend Additions ---
+frontend/node_modules/
+frontend/build/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
 
-# Ignore Jupyter Notebook checkpoints
-.ipynb_checkpoints/
+# --- Backend/API Additions ---
+backend/.env
+backend/__pycache__/
+*.py[cod]
 
-# Ignore Python environments
-venv/
-env/
-__pycache__/
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
