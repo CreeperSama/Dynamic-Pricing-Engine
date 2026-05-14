@@ -4,7 +4,6 @@ import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, A
 import { DollarSign, Calendar, Activity, TrendingUp } from 'lucide-react';
 
 const App = () => {
-  // ADDED: current_price for baseline calculations
   const [formData, setFormData] = useState({
     current_price: 110, comp_1: 100, comp_2: 105, comp_3: 95, product_score: 4.5, holiday: 0
   });
@@ -12,6 +11,24 @@ const App = () => {
   const [loading, setLoading] = useState(false);
 
   const handleCalculate = async () => {
+    // ==========================================
+    // 🛑 FRONTEND SAFETY CHECKS (UX IMPROVEMENT)
+    // ==========================================
+    const maxPrice = Math.max(formData.current_price, formData.comp_1, formData.comp_2, formData.comp_3);
+    
+    if (maxPrice > 365) {
+      alert("AI Warning: Maximum supported price is $365 based on historical data.");
+      return; // Stop the function here
+    }
+    if (formData.product_score < 3.3 || formData.product_score > 4.5) {
+      alert("AI Warning: Product Score must be between 3.3 and 4.5.");
+      return;
+    }
+    if (formData.holiday < 0 || formData.holiday > 4) {
+      alert("AI Warning: Holidays must be between 0 and 4.");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -24,31 +41,26 @@ const App = () => {
       const response = await axios.post('http://127.0.0.1:8000/predict', payload);
       setResult(response.data);
     } catch (error) {
-      // 🛑 THIS IS THE CRITICAL PART WE NEED TO UPDATE
+      // Cleaned up error handling just in case!
       if (error.response && error.response.data && error.response.data.detail) {
-        // This catches our custom 400 error from FastAPI
-        alert(`AI Engine Warning: ${error.response.data.detail}`);
+        alert(`Backend Error: ${error.response.data.detail}`);
       } else {
-        // This catches actual server crashes
-        alert("Server Connection Error. Check your python terminal!");
+        alert("Connection Error: Make sure FastAPI is running on port 8000.");
       }
     }
     setLoading(false);
   };
 
-  // --- NEW CALCULATIONS ---
   let lift = null;
   let barData = [];
   
   if (result && result.chart_data) {
-    // 1. Calculate Lift vs Current Price
     const closest = result.chart_data.reduce((prev, curr) => 
       Math.abs(curr.price - formData.current_price) < Math.abs(prev.price - formData.current_price) ? curr : prev
     );
     const baselineRevenue = closest.revenue;
     lift = baselineRevenue > 0 ? (((result.expected_revenue - baselineRevenue) / baselineRevenue) * 100).toFixed(1) : 0;
 
-    // 2. Prepare Data for Benchmarking Bar Chart
     barData = [
       { name: 'Optimal AI', price: result.recommended_price, color: '#10b981' },
       { name: 'Current', price: formData.current_price, color: '#94a3b8' },
@@ -57,6 +69,20 @@ const App = () => {
       { name: 'Comp 3', price: formData.comp_3, color: '#3b82f6' }
     ];
   }
+
+  // Helper function to define the ranges and hints for each input
+  const getInputProps = (key) => {
+    if (key.includes('comp') || key === 'current_price') {
+      return { hint: "Max: $365.00", min: 10, max: 365, step: "0.1" };
+    }
+    if (key === 'product_score') {
+      return { hint: "Range: 3.3 - 4.5", min: 3.3, max: 4.5, step: "0.1" };
+    }
+    if (key === 'holiday') {
+      return { hint: "Range: 0 - 4", min: 0, max: 4, step: "1" };
+    }
+    return { hint: "", min: 0, max: 100, step: "1" };
+  };
 
   return (
     <div style={styles.container}>
@@ -80,22 +106,28 @@ const App = () => {
           <section style={styles.glassCard}>
             <h3 style={styles.cardTitle}>Market Variables</h3>
             <div style={styles.inputGroup}>
-              {Object.keys(formData).map((key) => (
-                <div key={key} style={styles.inputWrapper}>
-                  <label style={{...styles.label, color: key === 'current_price' ? '#6366f1' : '#64748b'}}>
-                    {key === 'holiday' ? <Calendar size={14}/> : <DollarSign size={14}/>} 
-                    {key.replace('_', ' ')}
-                  </label>
-                  <input
-                    type="number"
-                    max = "350"
-                    step="0.1"
-                    value={formData[key]}
-                    onChange={(e) => setFormData({ ...formData, [key]: parseFloat(e.target.value) || 0 })}
-                    style={styles.input}
-                  />
-                </div>
-              ))}
+              {Object.keys(formData).map((key) => {
+                const { hint, min, max, step } = getInputProps(key);
+                return (
+                  <div key={key} style={styles.inputWrapper}>
+                    <label style={{...styles.label, color: key === 'current_price' ? '#6366f1' : '#64748b'}}>
+                      {key === 'holiday' ? <Calendar size={14}/> : <DollarSign size={14}/>} 
+                      {key.replace('_', ' ')}
+                    </label>
+                    <input
+                      type="number"
+                      min={min}
+                      max={max}
+                      step={step}
+                      value={formData[key]}
+                      onChange={(e) => setFormData({ ...formData, [key]: parseFloat(e.target.value) || 0 })}
+                      style={styles.input}
+                    />
+                    {/* NEW: Helper Text below the input */}
+                    <span style={styles.hintText}>{hint}</span>
+                  </div>
+                );
+              })}
             </div>
             <button 
               onClick={handleCalculate} 
@@ -108,7 +140,6 @@ const App = () => {
 
           {/* --- Results & Analytics --- */}
           <section style={styles.analyticsSection}>
-            {/* UPDATED: 3-Column Metrics Grid */}
             <div style={{ ...styles.metricsGrid, gridTemplateColumns: 'repeat(3, 1fr)' }}>
               <div style={styles.metricCard}>
                 <p style={styles.metricLabel}>Optimal Price</p>
@@ -142,10 +173,9 @@ const App = () => {
               </div>
             )}
 
-            {/* Charts Area: Stacked Vertically */}
+            {/* Charts Area */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               
-              {/* Elasticity Curve */}
               <div style={{ ...styles.chartCard, height: '300px', display: 'flex', flexDirection: 'column' }}>
                 <h3 style={styles.cardTitle}>Revenue Elasticity Curve</h3>
                 {result && result.chart_data ? (
@@ -171,7 +201,6 @@ const App = () => {
                 )}
               </div>
 
-              {/* NEW: Competitor Benchmarking Bar Chart */}
               <div style={{ ...styles.chartCard, height: '300px', display: 'flex', flexDirection: 'column' }}>
                 <h3 style={styles.cardTitle}>Market Positioning (Price Benchmarking)</h3>
                 {result ? (
@@ -205,35 +234,11 @@ const App = () => {
 
 // --- Modern Styled Objects ---
 const styles = {
-  container: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    fontFamily: "'Inter', sans-serif",
-    padding: '40px 20px',
-    position: 'relative',
-    overflow: 'hidden'
-  },
-  bgCircle1: {
-    position: 'absolute', top: '-10%', right: '-5%', width: '400px', height: '400px',
-    background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(255,255,255,0) 70%)',
-    borderRadius: '50%', zIndex: 0
-  },
-  bgCircle2: {
-    position: 'absolute', bottom: '-10%', left: '-5%', width: '500px', height: '500px',
-    background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, rgba(255,255,255,0) 70%)',
-    borderRadius: '50%', zIndex: 0
-  },
-  dashboard: {
-    width: '1100px', maxWidth: '100%', background: 'rgba(255, 255, 255, 0.7)',
-    backdropFilter: 'blur(10px)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.8)',
-    boxShadow: '0 20px 50px rgba(0,0,0,0.05)', padding: '40px', zIndex: 1
-  },
-  header: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px'
-  },
+  container: { minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontFamily: "'Inter', sans-serif", padding: '40px 20px', position: 'relative', overflow: 'hidden' },
+  bgCircle1: { position: 'absolute', top: '-10%', right: '-5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(255,255,255,0) 70%)', borderRadius: '50%', zIndex: 0 },
+  bgCircle2: { position: 'absolute', bottom: '-10%', left: '-5%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, rgba(255,255,255,0) 70%)', borderRadius: '50%', zIndex: 0 },
+  dashboard: { width: '1100px', maxWidth: '100%', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(10px)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.8)', boxShadow: '0 20px 50px rgba(0,0,0,0.05)', padding: '40px', zIndex: 1 },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' },
   title: { margin: 0, fontSize: '28px', color: '#1e293b', fontWeight: 800 },
   badge: { fontSize: '12px', background: '#6366f1', color: 'white', padding: '4px 12px', borderRadius: '20px', verticalAlign: 'middle', marginLeft: '10px' },
   subtitle: { margin: '4px 0 0 0', color: '#64748b', fontSize: '14px' },
@@ -244,11 +249,8 @@ const styles = {
   inputWrapper: { marginBottom: '16px' },
   label: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' },
   input: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '14px', boxSizing: 'border-box' },
-  button: {
-    width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
-    background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)', color: 'white',
-    fontWeight: 700, cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3)'
-  },
+  hintText: { fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '4px', fontWeight: 500 }, // NEW STYLE
+  button: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)', color: 'white', fontWeight: 700, cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3)' },
   buttonLoading: { background: '#94a3b8', cursor: 'not-allowed', width: '100%', padding: '14px', borderRadius: '12px', border: 'none', color: 'white' },
   metricsGrid: { display: 'grid', gap: '20px', marginBottom: '24px' },
   metricCard: { background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)', padding: '20px', borderRadius: '16px', textAlign: 'center', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', justifyContent: 'center' },
