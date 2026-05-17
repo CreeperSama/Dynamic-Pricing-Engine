@@ -11,14 +11,11 @@ const App = () => {
   const [loading, setLoading] = useState(false);
 
   const handleCalculate = async () => {
-    // ==========================================
-    // 🛑 FRONTEND SAFETY CHECKS (UX IMPROVEMENT)
-    // ==========================================
     const maxPrice = Math.max(formData.current_price, formData.comp_1, formData.comp_2, formData.comp_3);
     
     if (maxPrice > 365) {
       alert("AI Warning: Maximum supported price is $365 based on historical data.");
-      return; // Stop the function here
+      return; 
     }
     if (formData.product_score < 3.3 || formData.product_score > 4.5) {
       alert("AI Warning: Product Score must be between 3.3 and 4.5.");
@@ -41,7 +38,6 @@ const App = () => {
       const response = await axios.post('http://127.0.0.1:8000/predict', payload);
       setResult(response.data);
     } catch (error) {
-      // Cleaned up error handling just in case!
       if (error.response && error.response.data && error.response.data.detail) {
         alert(`Backend Error: ${error.response.data.detail}`);
       } else {
@@ -70,17 +66,10 @@ const App = () => {
     ];
   }
 
-  // Helper function to define the ranges and hints for each input
   const getInputProps = (key) => {
-    if (key.includes('comp') || key === 'current_price') {
-      return { hint: "Max: $365.00", min: 10, max: 365, step: "0.1" };
-    }
-    if (key === 'product_score') {
-      return { hint: "Range: 3.3 - 4.5", min: 3.3, max: 4.5, step: "0.1" };
-    }
-    if (key === 'holiday') {
-      return { hint: "Range: 0 - 4", min: 0, max: 4, step: "1" };
-    }
+    if (key.includes('comp') || key === 'current_price') return { hint: "Max: $365", min: 10, max: 365, step: "0.1" };
+    if (key === 'product_score') return { hint: "Range: 3.3 - 4.5", min: 3.3, max: 4.5, step: "0.1" };
+    if (key === 'holiday') return { hint: "Range: 0 - 4", min: 0, max: 4, step: "1" };
     return { hint: "", min: 0, max: 100, step: "1" };
   };
 
@@ -93,66 +82,63 @@ const App = () => {
         <header style={styles.header}>
           <div>
             <h1 style={styles.title}>PriceOptix <span style={styles.badge}>AI Engine</span></h1>
-            <p style={styles.subtitle}>Dynamic Revenue Optimization Dashboard</p>
+            <p style={styles.subtitle}>Dynamic Revenue Optimization</p>
           </div>
           <div style={styles.status}>
             <Activity size={16} color="#00ff88" /> 
-            <span style={{marginLeft: '8px'}}>System Live</span>
+            <span style={{marginLeft: '8px'}}>Live</span>
           </div>
         </header>
 
+        {/* --- MOBILE OPTIMIZED GRID --- */}
         <div style={styles.mainGrid}>
-          {/* --- Input Sidebar --- */}
-          <section style={styles.glassCard}>
-            <h3 style={styles.cardTitle}>Market Variables</h3>
-            <div style={styles.inputGroup}>
-              {Object.keys(formData).map((key) => {
-                const { hint, min, max, step } = getInputProps(key);
-                return (
-                  <div key={key} style={styles.inputWrapper}>
-                    <label style={{...styles.label, color: key === 'current_price' ? '#6366f1' : '#64748b'}}>
-                      {key === 'holiday' ? <Calendar size={14}/> : <DollarSign size={14}/>} 
-                      {key.replace('_', ' ')}
-                    </label>
-                    <input
-  type="number"
-  min={min}
-  max={max}
-  step={step}
-  value={formData[key] === 0 && key !== 'holiday' ? '' : formData[key]} // Clears default 0s (except for holiday)
-  onChange={(e) => {
-    const val = e.target.value;
-    setFormData({ 
-      ...formData, 
-      [key]: val === '' ? '' : parseFloat(val) 
-    });
-  }}
-  onBlur={(e) => {
-    // If they click away and left it completely blank, safely snap it back to 0
-    if (e.target.value === '') {
-      setFormData({ ...formData, [key]: 0 });
-    }
-  }}
-  style={styles.input}
-/>
-                    {/* NEW: Helper Text below the input */}
-                    <span style={styles.hintText}>{hint}</span>
-                  </div>
-                );
-              })}
+          
+          <section style={styles.sidebarSection}>
+            <div style={styles.glassCard}>
+              <h3 style={styles.cardTitle}>Market Variables</h3>
+              <div style={styles.inputGroup}>
+                {Object.keys(formData).map((key) => {
+                  const { hint, min, max, step } = getInputProps(key);
+                  return (
+                    <div key={key} style={styles.inputWrapper}>
+                      <label style={{...styles.label, color: key === 'current_price' ? '#6366f1' : '#64748b'}}>
+                        {key === 'holiday' ? <Calendar size={14}/> : <DollarSign size={14}/>} 
+                        {key.replace('_', ' ')}
+                      </label>
+                      
+                      {/* --- STICKY ZERO FIX --- */}
+                      <input
+                        type="number"
+                        min={min}
+                        max={max}
+                        step={step}
+                        value={formData[key] === 0 && key !== 'holiday' ? '' : formData[key]}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData({ ...formData, [key]: val === '' ? '' : parseFloat(val) });
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === '') setFormData({ ...formData, [key]: 0 });
+                        }}
+                        style={styles.input}
+                      />
+                      <span style={styles.hintText}>{hint}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <button 
+                onClick={handleCalculate} 
+                style={loading ? styles.buttonLoading : styles.button}
+                disabled={loading}
+              >
+                {loading ? "Processing..." : "Optimize Pricing"}
+              </button>
             </div>
-            <button 
-              onClick={handleCalculate} 
-              style={loading ? styles.buttonLoading : styles.button}
-              disabled={loading}
-            >
-              {loading ? "Processing AI Logic..." : "Optimize Pricing"}
-            </button>
           </section>
 
-          {/* --- Results & Analytics --- */}
           <section style={styles.analyticsSection}>
-            <div style={{ ...styles.metricsGrid, gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            <div style={styles.metricsGrid}>
               <div style={styles.metricCard}>
                 <p style={styles.metricLabel}>Optimal Price</p>
                 <h2 style={styles.metricValue}>${result ? result.recommended_price : '--'}</h2>
@@ -170,7 +156,6 @@ const App = () => {
               </div>
             </div>
 
-            {/* AI Insight Generation */}
             {result && (
               <div style={{ ...styles.glassCard, marginBottom: '24px', borderLeft: '4px solid #00ff88' }}>
                 <h3 style={{ ...styles.cardTitle, marginBottom: '8px' }}>🤖 AI Strategic Insight</h3>
@@ -185,9 +170,7 @@ const App = () => {
               </div>
             )}
 
-            {/* Charts Area */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
               <div style={{ ...styles.chartCard, height: '300px', display: 'flex', flexDirection: 'column' }}>
                 <h3 style={styles.cardTitle}>Revenue Elasticity Curve</h3>
                 {result && result.chart_data ? (
@@ -214,7 +197,7 @@ const App = () => {
               </div>
 
               <div style={{ ...styles.chartCard, height: '300px', display: 'flex', flexDirection: 'column' }}>
-                <h3 style={styles.cardTitle}>Market Positioning (Price Benchmarking)</h3>
+                <h3 style={styles.cardTitle}>Market Positioning</h3>
                 {result ? (
                   <div style={{ flexGrow: 1, width: '100%', minHeight: '200px' }}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -235,7 +218,6 @@ const App = () => {
                   <div style={styles.emptyChart}>Run optimization to benchmark competitors</div>
                 )}
               </div>
-
             </div>
           </section>
         </div>
@@ -244,32 +226,37 @@ const App = () => {
   );
 };
 
-// --- Modern Styled Objects ---
+// --- RESPONSIVE CSS STYLES ---
 const styles = {
-  container: { minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontFamily: "'Inter', sans-serif", padding: '40px 20px', position: 'relative', overflow: 'hidden' },
+  container: { minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', fontFamily: "'Inter', sans-serif", padding: 'clamp(20px, 4vw, 40px) 20px', position: 'relative', overflow: 'hidden' },
   bgCircle1: { position: 'absolute', top: '-10%', right: '-5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(255,255,255,0) 70%)', borderRadius: '50%', zIndex: 0 },
   bgCircle2: { position: 'absolute', bottom: '-10%', left: '-5%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, rgba(255,255,255,0) 70%)', borderRadius: '50%', zIndex: 0 },
-  dashboard: { width: '1100px', maxWidth: '100%', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(10px)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.8)', boxShadow: '0 20px 50px rgba(0,0,0,0.05)', padding: '40px', zIndex: 1 },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' },
-  title: { margin: 0, fontSize: '28px', color: '#1e293b', fontWeight: 800 },
+  dashboard: { width: '1100px', maxWidth: '100%', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(10px)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.8)', boxShadow: '0 20px 50px rgba(0,0,0,0.05)', padding: 'clamp(20px, 5vw, 40px)', zIndex: 1 },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' },
+  title: { margin: 0, fontSize: 'clamp(20px, 4vw, 28px)', color: '#1e293b', fontWeight: 800 },
   badge: { fontSize: '12px', background: '#6366f1', color: 'white', padding: '4px 12px', borderRadius: '20px', verticalAlign: 'middle', marginLeft: '10px' },
   subtitle: { margin: '4px 0 0 0', color: '#64748b', fontSize: '14px' },
   status: { display: 'flex', alignItems: 'center', fontSize: '12px', color: '#64748b', fontWeight: 600, background: '#fff', padding: '6px 12px', borderRadius: '12px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' },
-  mainGrid: { display: 'grid', gridTemplateColumns: '320px 1fr', gap: '32px' },
+  
+  // Responsive layout magic starts here
+  mainGrid: { display: 'flex', flexWrap: 'wrap', gap: '32px' },
+  sidebarSection: { flex: '1 1 320px', minWidth: '280px' },
+  analyticsSection: { flex: '3 1 500px', minWidth: '280px', overflow: 'hidden' },
+  metricsGrid: { display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '24px' },
+  metricCard: { flex: '1 1 180px', background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)', padding: '20px', borderRadius: '16px', textAlign: 'center', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', justifyContent: 'center' },
+  
   glassCard: { background: '#ffffff', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
   cardTitle: { marginTop: 0, marginBottom: '20px', fontSize: '16px', color: '#334155' },
   inputWrapper: { marginBottom: '16px' },
   label: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' },
   input: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '14px', boxSizing: 'border-box' },
-  hintText: { fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '4px', fontWeight: 500 }, // NEW STYLE
+  hintText: { fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '4px', fontWeight: 500 },
   button: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)', color: 'white', fontWeight: 700, cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3)' },
   buttonLoading: { background: '#94a3b8', cursor: 'not-allowed', width: '100%', padding: '14px', borderRadius: '12px', border: 'none', color: 'white' },
-  metricsGrid: { display: 'grid', gap: '20px', marginBottom: '24px' },
-  metricCard: { background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)', padding: '20px', borderRadius: '16px', textAlign: 'center', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', justifyContent: 'center' },
   metricLabel: { margin: 0, fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' },
   metricValue: { margin: '8px 0 0 0', fontSize: '28px', color: '#1e293b', fontWeight: 800 },
   chartCard: { background: '#ffffff', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
-  emptyChart: { height: '100%', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '12px' },
+  emptyChart: { height: '100%', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '12px', textAlign: 'center', padding: '20px' },
   tooltip: { borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }
 };
 
