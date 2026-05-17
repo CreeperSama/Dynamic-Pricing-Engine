@@ -115,14 +115,26 @@ const App = () => {
                       {key.replace('_', ' ')}
                     </label>
                     <input
-                      type="number"
-                      min={min}
-                      max={max}
-                      step={step}
-                      value={formData[key]}
-                      onChange={(e) => setFormData({ ...formData, [key]: parseFloat(e.target.value) || 0 })}
-                      style={styles.input}
-                    />
+  type="number"
+  min={min}
+  max={max}
+  step={step}
+  value={formData[key] === 0 && key !== 'holiday' ? '' : formData[key]} // Clears default 0s (except for holiday)
+  onChange={(e) => {
+    const val = e.target.value;
+    setFormData({ 
+      ...formData, 
+      [key]: val === '' ? '' : parseFloat(val) 
+    });
+  }}
+  onBlur={(e) => {
+    // If they click away and left it completely blank, safely snap it back to 0
+    if (e.target.value === '') {
+      setFormData({ ...formData, [key]: 0 });
+    }
+  }}
+  style={styles.input}
+/>
                     {/* NEW: Helper Text below the input */}
                     <span style={styles.hintText}>{hint}</span>
                   </div>
