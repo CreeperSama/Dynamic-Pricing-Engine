@@ -35,7 +35,7 @@ const App = () => {
         product_score: formData.product_score,
         holiday: formData.holiday
       };
-      const response = await axios.post('http://127.0.0.1:8000/predict', payload);
+      const response = await axios.post('https://pricing-engine-backend-78bh.onrender.com/predict', payload);
       setResult(response.data);
     } catch (error) {
       if (error.response && error.response.data && error.response.data.detail) {
